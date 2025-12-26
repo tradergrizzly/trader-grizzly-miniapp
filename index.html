@@ -1,129 +1,166 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trader Grizzly Mini App</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trader Grizzly Mini App</title>
 
-  <!-- Telegram Mini App SDK -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: #0e0e0e;
-      color: #ffffff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-                   Roboto, Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
+<style>
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+  background: #0e0e0e;
+  color: #ffffff;
+}
 
-    .container {
-      width: 100%;
-      max-width: 360px;
-      padding: 20px;
-      box-sizing: border-box;
-    }
+.screen {
+  display: none;
+  height: 100vh;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+}
 
-    h1 {
-      text-align: center;
-      margin-bottom: 24px;
-      font-size: 22px;
-    }
+.screen.active {
+  display: flex;
+}
 
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 14px;
-      opacity: 0.85;
-    }
+h2 {
+  margin-bottom: 20px;
+}
 
-    select {
-      width: 100%;
-      padding: 14px;
-      margin-bottom: 18px;
-      border-radius: 10px;
-      border: none;
-      background: #1c1c1c;
-      color: #fff;
-      font-size: 16px;
-      outline: none;
-    }
+select {
+  width: 240px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+}
 
-    button {
-      width: 100%;
-      padding: 16px;
-      font-size: 16px;
-      font-weight: bold;
-      border-radius: 12px;
-      border: none;
-      cursor: pointer;
-      background: #3aa6ff;
-      color: #ffffff;
-    }
+button {
+  width: 240px;
+  padding: 14px;
+  font-size: 16px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+}
 
-    button:active {
-      opacity: 0.85;
-    }
-
-    .footer {
-      text-align: center;
-      margin-top: 16px;
-      font-size: 12px;
-      opacity: 0.6;
-    }
-  </style>
+.blue { background: #3498db; color: #fff; }
+.green { background: #1db954; color: #fff; }
+.red { background: #e74c3c; color: #fff; }
+</style>
 </head>
 
 <body>
-  <div class="container">
-    <h1>Параметры анализа</h1>
 
-    <label for="pair">Валютная пара</label>
-    <select id="pair">
-      <option value="EUR/USD">EUR/USD</option>
-      <option value="GBP/USD">GBP/USD</option>
-      <option value="USD/JPY">USD/JPY</option>
-      <option value="AUD/USD">AUD/USD</option>
-    </select>
+<!-- ЭКРАН НАСТРОЕК -->
+<div id="settings" class="screen active">
+  <h2>Параметры анализа</h2>
 
-    <label for="timeframe">Таймфрейм</label>
-    <select id="timeframe">
-      <option value="1m">1 минута</option>
-      <option value="5m">5 минут</option>
-      <option value="15m">15 минут</option>
-    </select>
+  <select id="pair">
+    <option>EUR/USD</option>
+    <option>GBP/USD</option>
+    <option>AED/CNY</option>
+  </select>
 
-    <label for="mode">Режим</label>
-    <select id="mode">
-      <option value="STANDARD">Standard</option>
-      <option value="AGGRESSIVE">Aggressive</option>
-      <option value="SAFE">Safe</option>
-    </select>
+  <select id="timeframe">
+    <option value="60">1 минута</option>
+    <option value="300">5 минут</option>
+  </select>
 
-    <button id="sendBtn">Получить сценарий</button>
+  <select id="mode">
+    <option value="STANDARD">STANDARD</option>
+    <option value="OTC">OTC</option>
+  </select>
 
-    <div class="footer">@TraderGrizzlyAIBot</div>
-  </div>
+  <button class="blue" onclick="getSignal()">Получить сигнал</button>
+</div>
 
-  <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
+<!-- ЭКРАН ОЖИДАНИЯ -->
+<div id="wait" class="screen">
+  <h2>Получение сигнала…</h2>
+  <p>Анализирую рынок</p>
+</div>
 
-    document.getElementById("sendBtn").addEventListener("click", () => {
-      const data = {
-        pair: document.getElementById("pair").value,
-        timeframe: document.getElementById("timeframe").value,
-        mode: document.getElementById("mode").value
-      };
+<!-- ЭКРАН РЕЗУЛЬТАТА -->
+<div id="result" class="screen">
+  <h1 id="resultText"></h1>
+  <button class="blue" onclick="reset()">Следующий сигнал</button>
+</div>
 
-      tg.sendData(JSON.stringify(data));
-      tg.close();
+<script>
+const API = "https://scleroid-measureless-kaya.ngrok-free.dev";
+
+let tradeId = null;
+
+function show(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+
+function getSignal() {
+  show("wait");
+
+  fetch(API + "/signal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      pair: document.getElementById("pair").value,
+      timeframe: parseInt(document.getElementById("timeframe").value),
+      mode: document.getElementById("mode").value
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    tradeId = data.trade_id;
+    pollResult();
+  })
+  .catch(() => {
+    alert("Ошибка связи с сервером");
+    reset();
+  });
+}
+
+function pollResult() {
+  const timer = setInterval(() => {
+    fetch(API + "/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trade_id: tradeId })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === "DONE") {
+        clearInterval(timer);
+        showResult(data.result);
+      }
     });
-  </script>
+  }, 3000);
+}
+
+function showResult(result) {
+  show("result");
+  const el = document.getElementById("resultText");
+
+  if (result === "PLUS") {
+    el.innerText = "ПЛЮС\nПоздравляем с победой!";
+    document.getElementById("result").style.background = "#1db954";
+  } else {
+    el.innerText = "МИНУС\nСделка не зашла";
+    document.getElementById("result").style.background = "#e74c3c";
+  }
+}
+
+function reset() {
+  document.getElementById("result").style.background = "#0e0e0e";
+  show("settings");
+}
+</script>
+
 </body>
 </html>
