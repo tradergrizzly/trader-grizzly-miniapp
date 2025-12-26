@@ -1,153 +1,140 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Trader Grizzly Bot AI</title>
+  <meta charset="UTF-8" />
+  <title>Trader Grizzly Mini App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-<style>
+  <style>
     body {
-        margin: 0;
-        background: #0f0f0f;
-        color: white;
-        font-family: Arial, sans-serif;
-        transition: background 0.4s ease;
+      margin: 0;
+      background: #0b0b0b;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
     }
+
     .screen {
-        display: none;
-        height: 100vh;
-        padding: 20px;
-        box-sizing: border-box;
-        text-align: center;
+      width: 100%;
+      max-width: 360px;
+      height: 100%;
+      padding: 24px;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
     }
-    .screen.active {
-        display: block;
+
+    .active { display: flex; }
+
+    h1 { margin-bottom: 20px; }
+    p { opacity: 0.8; }
+
+    .btn {
+      margin-top: 30px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #3da5ff;
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
     }
-    h1 {
-        margin-top: 40px;
-        font-size: 28px;
-    }
-    .sub {
-        opacity: 0.7;
-        margin-top: 12px;
-        font-size: 15px;
-    }
-    button {
-        margin-top: 30px;
-        padding: 16px 20px;
-        font-size: 16px;
-        border-radius: 12px;
-        border: none;
-        cursor: pointer;
-        width: 100%;
-        max-width: 320px;
-    }
-    .btn-blue {
-        background: #3aa0ff;
-        color: #fff;
-    }
-</style>
+
+    .plus { background: #22c55e; }
+    .minus { background: #ef4444; }
+  </style>
 </head>
 
 <body>
 
-<!-- ЭКРАН ОЖИДАНИЯ -->
-<div id="loading" class="screen active">
-    <h1>Получение сигнала…</h1>
-    <div class="sub">Анализирую рынок</div>
+<!-- ЭКРАН 1 — СИГНАЛ -->
+<div id="signalScreen" class="screen active">
+  <h1>📊 ТОРГОВЫЙ СИГНАЛ</h1>
+  <p id="pair">—</p>
+  <p id="direction">—</p>
+  <p id="expiry">—</p>
+  <button class="btn" onclick="startTrade()">Открыть сделку</button>
 </div>
 
-<!-- ЭКРАН РЕЗУЛЬТАТА -->
-<div id="result" class="screen">
-    <h1 id="resultTitle"></h1>
-    <div class="sub" id="resultSub"></div>
-    <button class="btn-blue" onclick="nextSignal()">Следующий сигнал</button>
+<!-- ЭКРАН 2 — ОЖИДАНИЕ -->
+<div id="waitingScreen" class="screen">
+  <h1>⏳ Сделка открыта</h1>
+  <p>Ожидаем экспирацию…</p>
+</div>
+
+<!-- ЭКРАН 3 — РЕЗУЛЬТАТ -->
+<div id="resultScreen" class="screen">
+  <h1 id="resultTitle"></h1>
+  <p id="resultText"></p>
+  <button class="btn" onclick="getSignal()">Следующий сигнал</button>
 </div>
 
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
+const API = "https://scleroid-measureless-kaya.ngrok-free.dev";
 
-// ✅ ТВОЙ NGROK (УЖЕ ВСТАВЛЕН)
-const API_BASE = "https://scleroid-measureless-kaya.ngrok-free.dev";
+let tradeId = null;
 
-let currentSignalId = null;
-let pollInterval = null;
+// Telegram init
+Telegram.WebApp.ready();
+Telegram.WebApp.expand();
 
-// ====== ЗАПРОС СИГНАЛА ======
-async function requestSignal() {
-    try {
-        const res = await fetch(API_BASE + "/signal", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                user_id: tg.initDataUnsafe?.user?.id || "test_user",
-                pair: "EUR/USD",
-                direction: "ВВЕРХ",
-                expiry_sec: 60
-            })
-        });
+// Запрос сигнала
+async function getSignal() {
+  showScreen("signalScreen");
 
-        const data = await res.json();
-        currentSignalId = data.signal_id;
+  const res = await fetch(API + "/signal", { method: "POST" });
+  const data = await res.json();
 
-        pollResult();
+  tradeId = data.trade_id;
 
-    } catch (e) {
-        alert("Ошибка связи с сервером");
-    }
+  document.getElementById("pair").innerText =
+    "Пара: " + data.pair;
+
+  document.getElementById("direction").innerText =
+    "Направление: " + (data.direction === "UP" ? "ВВЕРХ 📈" : "ВНИЗ 📉");
+
+  document.getElementById("expiry").innerText =
+    "Экспирация: " + data.expiry + " сек";
 }
 
-// ====== ОПРОС РЕЗУЛЬТАТА ======
-function pollResult() {
-    pollInterval = setInterval(async () => {
-        try {
-            const res = await fetch(API_BASE + "/result?signal_id=" + currentSignalId);
-            const data = await res.json();
+// Нажали «Открыть сделку»
+function startTrade() {
+  showScreen("waitingScreen");
 
-            if (data.status === "done") {
-                clearInterval(pollInterval);
-                showResult(data.result);
-            }
-
-        } catch (e) {
-            clearInterval(pollInterval);
-            alert("Ошибка при получении результата");
-        }
-    }, 2000);
+  setTimeout(checkResult, 3000); // имитация ожидания
 }
 
-// ====== ПОКАЗ РЕЗУЛЬТАТА ======
-function showResult(result) {
-    document.getElementById("loading").classList.remove("active");
-    document.getElementById("result").classList.add("active");
+// Проверка результата
+async function checkResult() {
+  const res = await fetch(API + "/result/" + tradeId);
+  const data = await res.json();
 
-    const title = document.getElementById("resultTitle");
-    const sub = document.getElementById("resultSub");
+  showScreen("resultScreen");
 
-    if (result === "plus") {
-        title.innerText = "ПЛЮС";
-        sub.innerText = "Поздравляем с победой!";
-        document.body.style.background = "#1fb950";
-    } else {
-        title.innerText = "МИНУС";
-        sub.innerText = "Сделка закрыта в минус";
-        document.body.style.background = "#e5533d";
-    }
+  if (data.result === "WIN") {
+    document.getElementById("resultScreen").className = "screen active plus";
+    document.getElementById("resultTitle").innerText = "ПЛЮС ✅";
+    document.getElementById("resultText").innerText = "Поздравляем с победой!";
+  } else {
+    document.getElementById("resultScreen").className = "screen active minus";
+    document.getElementById("resultTitle").innerText = "МИНУС ❌";
+    document.getElementById("resultText").innerText = "Сделка не зашла";
+  }
 }
 
-// ====== СЛЕДУЮЩИЙ СИГНАЛ ======
-function nextSignal() {
-    document.body.style.background = "#0f0f0f";
-    document.getElementById("result").classList.remove("active");
-    document.getElementById("loading").classList.add("active");
-    requestSignal();
+// Переключение экранов
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
 }
 
-// 🚀 старт сразу
-requestSignal();
+// Старт
+getSignal();
 </script>
 
 </body>
