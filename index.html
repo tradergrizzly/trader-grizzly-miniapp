@@ -2,141 +2,159 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Trader Grizzly Mini App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <title>Trader Grizzly Bot AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
     body {
       margin: 0;
-      background: #0b0b0b;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-
-    .screen {
-      width: 100%;
-      max-width: 360px;
-      height: 100%;
-      padding: 24px;
-      display: none;
-      flex-direction: column;
-      justify-content: center;
+      background: #0f0f0f;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
       text-align: center;
     }
-
-    .active { display: flex; }
-
-    h1 { margin-bottom: 20px; }
-    p { opacity: 0.8; }
-
-    .btn {
-      margin-top: 30px;
-      padding: 14px;
-      border-radius: 10px;
-      background: #3da5ff;
-      border: none;
-      color: #fff;
+    .screen {
+      display: none;
+      padding: 40px 20px;
+    }
+    .active {
+      display: block;
+    }
+    button, select {
+      width: 90%;
+      padding: 12px;
+      margin-top: 20px;
       font-size: 16px;
+      border-radius: 8px;
+      border: none;
+    }
+    button {
+      background: #3399ff;
+      color: #fff;
       cursor: pointer;
     }
-
-    .plus { background: #22c55e; }
-    .minus { background: #ef4444; }
+    pre {
+      text-align: left;
+      white-space: pre-wrap;
+      margin-top: 20px;
+      font-size: 15px;
+    }
   </style>
 </head>
 
 <body>
 
-<!-- ЭКРАН 1 — СИГНАЛ -->
-<div id="signalScreen" class="screen active">
-  <h1>📊 ТОРГОВЫЙ СИГНАЛ</h1>
-  <p id="pair">—</p>
-  <p id="direction">—</p>
-  <p id="expiry">—</p>
-  <button class="btn" onclick="startTrade()">Открыть сделку</button>
+<!-- ===== ЭКРАН 1: ВЫБОР ПАРЫ ===== -->
+<div id="screen-select" class="screen active">
+  <h2>📊 Выбор пары</h2>
+
+  <select id="pair">
+    <option value="EUR/USD">EUR/USD</option>
+    <option value="GBP/USD">GBP/USD</option>
+    <option value="USD/JPY">USD/JPY</option>
+  </select>
+
+  <select id="timeframe">
+    <option value="1">1 минута</option>
+    <option value="2">2 минуты</option>
+    <option value="3">3 минуты</option>
+    <option value="5">5 минут</option>
+    <option value="10">10 минут</option>
+  </select>
+
+  <button onclick="requestSignal()">Получить сигнал</button>
 </div>
 
-<!-- ЭКРАН 2 — ОЖИДАНИЕ -->
-<div id="waitingScreen" class="screen">
-  <h1>⏳ Сделка открыта</h1>
-  <p>Ожидаем экспирацию…</p>
+<!-- ===== ЭКРАН 2: АНАЛИЗ ===== -->
+<div id="screen-loading" class="screen">
+  <h2>⏳ Идёт анализ рынка</h2>
+  <p>Сигнал в течение 10–20 секунд…</p>
 </div>
 
-<!-- ЭКРАН 3 — РЕЗУЛЬТАТ -->
-<div id="resultScreen" class="screen">
-  <h1 id="resultTitle"></h1>
-  <p id="resultText"></p>
-  <button class="btn" onclick="getSignal()">Следующий сигнал</button>
+<!-- ===== ЭКРАН 3: СИГНАЛ ===== -->
+<div id="screen-signal" class="screen">
+  <h2>📊 ТОРГОВЫЙ СИГНАЛ</h2>
+  <pre id="signal-text"></pre>
+  <p>⏳ Дождитесь окончания сигнала</p>
+</div>
+
+<!-- ===== ЭКРАН 4: РЕЗУЛЬТАТ ===== -->
+<div id="screen-result" class="screen">
+  <h2>📈 РЕЗУЛЬТАТ СДЕЛКИ</h2>
+  <pre id="result-text"></pre>
+  <button onclick="restart()">Следующий сигнал</button>
 </div>
 
 <script>
-const API = "https://scleroid-measureless-kaya.ngrok-free.dev";
+/* === ТВОЙ NGROK УЖЕ ВСТАВЛЕН === */
+const API_URL = "https://scleroid-measureless-kaya.ngrok-free.dev";
 
-let tradeId = null;
+let signalData = null;
 
-// Telegram init
-Telegram.WebApp.ready();
-Telegram.WebApp.expand();
+// === ЗАПРОС СИГНАЛА ===
+async function requestSignal() {
+  const pair = document.getElementById("pair").value;
+  const timeframe = Number(document.getElementById("timeframe").value);
 
-// Запрос сигнала
-async function getSignal() {
-  showScreen("signalScreen");
+  switchScreen("screen-loading");
 
-  const res = await fetch(API + "/signal", { method: "POST" });
-  const data = await res.json();
+  const response = await fetch(API_URL + "/signal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pair, timeframe })
+  });
 
-  tradeId = data.trade_id;
+  signalData = await response.json();
 
-  document.getElementById("pair").innerText =
-    "Пара: " + data.pair;
-
-  document.getElementById("direction").innerText =
-    "Направление: " + (data.direction === "UP" ? "ВВЕРХ 📈" : "ВНИЗ 📉");
-
-  document.getElementById("expiry").innerText =
-    "Экспирация: " + data.expiry + " сек";
+  // имитация анализа 10–20 сек
+  setTimeout(showSignal, 12000);
 }
 
-// Нажали «Открыть сделку»
-function startTrade() {
-  showScreen("waitingScreen");
+// === ПОКАЗ СИГНАЛА ===
+function showSignal() {
+  const s = signalData.signal;
 
-  setTimeout(checkResult, 3000); // имитация ожидания
+  document.getElementById("signal-text").textContent =
+`💱 Пара: ${s.pair}
+📈 Направление: ${s.direction}
+⏱️ Таймфрейм: ${s.timeframe} мин
+⭐ Качество: ${s.quality}
+💰 Цена открытия: ${s.open_price}
+🕒 Время входа: ${s.entry_time}`;
+
+  switchScreen("screen-signal");
+
+  setTimeout(showResult, s.timeframe * 60000);
 }
 
-// Проверка результата
-async function checkResult() {
-  const res = await fetch(API + "/result/" + tradeId);
-  const data = await res.json();
+// === ПОКАЗ РЕЗУЛЬТАТА ===
+function showResult() {
+  const r = signalData.result;
 
-  showScreen("resultScreen");
+  document.getElementById("result-text").textContent =
+`💱 Пара: ${r.pair}
+📈 Направление: ${r.direction}
+⭐ Качество: ${r.quality}
+🕒 Время входа: ${r.entry_time}
+🕒 Время выхода: ${r.exit_time}
+💰 Цена закрытия: ${r.close_price}
+📊 Разница: ${r.difference}
 
-  if (data.result === "WIN") {
-    document.getElementById("resultScreen").className = "screen active plus";
-    document.getElementById("resultTitle").innerText = "ПЛЮС ✅";
-    document.getElementById("resultText").innerText = "Поздравляем с победой!";
-  } else {
-    document.getElementById("resultScreen").className = "screen active minus";
-    document.getElementById("resultTitle").innerText = "МИНУС ❌";
-    document.getElementById("resultText").innerText = "Сделка не зашла";
-  }
+🏁 Исход: ${r.outcome === "ПЛЮС" ? "✅ ПЛЮС" : "❌ МИНУС"}`;
+
+  switchScreen("screen-result");
 }
 
-// Переключение экранов
-function showScreen(id) {
+// === УТИЛИТЫ ===
+function switchScreen(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 }
 
-// Старт
-getSignal();
+function restart() {
+  switchScreen("screen-select");
+}
 </script>
 
 </body>
 </html>
-
