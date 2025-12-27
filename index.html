@@ -1,160 +1,98 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>Trader Grizzly Bot AI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <style>
-    body {
-      margin: 0;
-      background: #0f0f0f;
-      color: #ffffff;
-      font-family: Arial, sans-serif;
-      text-align: center;
-    }
-    .screen {
-      display: none;
-      padding: 40px 20px;
-    }
-    .active {
-      display: block;
-    }
-    button, select {
-      width: 90%;
-      padding: 12px;
-      margin-top: 20px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: none;
-    }
-    button {
-      background: #3399ff;
-      color: #fff;
-      cursor: pointer;
-    }
-    pre {
-      text-align: left;
-      white-space: pre-wrap;
-      margin-top: 20px;
-      font-size: 15px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Trader Grizzly Bot AI</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body {
+    margin: 0;
+    background: #0f0f0f;
+    color: white;
+    font-family: Arial;
+    text-align: center;
+}
+.container { padding: 30px; }
+select, button {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    margin-top: 15px;
+    border-radius: 8px;
+    border: none;
+}
+button {
+    background: #3ba1ff;
+    color: white;
+    cursor: pointer;
+}
+.hidden { display: none; }
+</style>
 </head>
 
 <body>
+<div class="container">
 
-<!-- ===== ЭКРАН 1: ВЫБОР ПАРЫ ===== -->
-<div id="screen-select" class="screen active">
-  <h2>📊 Выбор пары</h2>
-
-  <select id="pair">
-    <option value="EUR/USD">EUR/USD</option>
-    <option value="GBP/USD">GBP/USD</option>
-    <option value="USD/JPY">USD/JPY</option>
-  </select>
-
-  <select id="timeframe">
-    <option value="1">1 минута</option>
-    <option value="2">2 минуты</option>
-    <option value="3">3 минуты</option>
-    <option value="5">5 минут</option>
-    <option value="10">10 минут</option>
-  </select>
-
-  <button onclick="requestSignal()">Получить сигнал</button>
+<!-- ЭКРАН 1 -->
+<div id="screen-pair">
+    <h2>📊 Выбор пары</h2>
+    <select id="pair">
+        <option value="EUR/USD">EUR/USD</option>
+        <option value="USD/JPY">USD/JPY</option>
+        <option value="GBP/USD">GBP/USD</option>
+    </select>
+    <button onclick="requestSignal()">Получить сигнал</button>
 </div>
 
-<!-- ===== ЭКРАН 2: АНАЛИЗ ===== -->
-<div id="screen-loading" class="screen">
-  <h2>⏳ Идёт анализ рынка</h2>
-  <p>Сигнал в течение 10–20 секунд…</p>
+<!-- ЭКРАН 2 -->
+<div id="screen-loading" class="hidden">
+    <h2>⏳ Идёт анализ рынка</h2>
+    <p>Сигнал в течение 10–20 секунд…</p>
 </div>
 
-<!-- ===== ЭКРАН 3: СИГНАЛ ===== -->
-<div id="screen-signal" class="screen">
-  <h2>📊 ТОРГОВЫЙ СИГНАЛ</h2>
-  <pre id="signal-text"></pre>
-  <p>⏳ Дождитесь окончания сигнала</p>
+<!-- ЭКРАН 3 -->
+<div id="screen-signal" class="hidden">
+    <h2>📊 ТОРГОВЫЙ СИГНАЛ</h2>
+    <p id="signalText"></p>
+    <button onclick="openDeal()">Открыть сделку</button>
 </div>
 
-<!-- ===== ЭКРАН 4: РЕЗУЛЬТАТ ===== -->
-<div id="screen-result" class="screen">
-  <h2>📈 РЕЗУЛЬТАТ СДЕЛКИ</h2>
-  <pre id="result-text"></pre>
-  <button onclick="restart()">Следующий сигнал</button>
 </div>
 
 <script>
-/* === ТВОЙ NGROK УЖЕ ВСТАВЛЕН === */
 const API_URL = "https://scleroid-measureless-kaya.ngrok-free.dev";
 
-let signalData = null;
+function requestSignal() {
+    document.getElementById("screen-pair").classList.add("hidden");
+    document.getElementById("screen-loading").classList.remove("hidden");
 
-// === ЗАПРОС СИГНАЛА ===
-async function requestSignal() {
-  const pair = document.getElementById("pair").value;
-  const timeframe = Number(document.getElementById("timeframe").value);
+    fetch(API_URL + "/signal", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            pair: document.getElementById("pair").value
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById("screen-loading").classList.add("hidden");
+        document.getElementById("screen-signal").classList.remove("hidden");
 
-  switchScreen("screen-loading");
-
-  const response = await fetch(API_URL + "/signal", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pair, timeframe })
-  });
-
-  signalData = await response.json();
-
-  // имитация анализа 10–20 сек
-  setTimeout(showSignal, 12000);
+        document.getElementById("signalText").innerHTML = `
+💱 Пара: ${data.pair}<br>
+📈 Направление: ${data.direction}<br>
+⏱️ Таймфрейм: ${data.timeframe}<br>
+⭐ Качество: ${data.quality}<br>
+💰 Цена открытия: ${data.open_price}<br>
+🕒 Время входа: ${data.entry_time}
+        `;
+    });
 }
 
-// === ПОКАЗ СИГНАЛА ===
-function showSignal() {
-  const s = signalData.signal;
-
-  document.getElementById("signal-text").textContent =
-`💱 Пара: ${s.pair}
-📈 Направление: ${s.direction}
-⏱️ Таймфрейм: ${s.timeframe} мин
-⭐ Качество: ${s.quality}
-💰 Цена открытия: ${s.open_price}
-🕒 Время входа: ${s.entry_time}`;
-
-  switchScreen("screen-signal");
-
-  setTimeout(showResult, s.timeframe * 60000);
-}
-
-// === ПОКАЗ РЕЗУЛЬТАТА ===
-function showResult() {
-  const r = signalData.result;
-
-  document.getElementById("result-text").textContent =
-`💱 Пара: ${r.pair}
-📈 Направление: ${r.direction}
-⭐ Качество: ${r.quality}
-🕒 Время входа: ${r.entry_time}
-🕒 Время выхода: ${r.exit_time}
-💰 Цена закрытия: ${r.close_price}
-📊 Разница: ${r.difference}
-
-🏁 Исход: ${r.outcome === "ПЛЮС" ? "✅ ПЛЮС" : "❌ МИНУС"}`;
-
-  switchScreen("screen-result");
-}
-
-// === УТИЛИТЫ ===
-function switchScreen(id) {
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-}
-
-function restart() {
-  switchScreen("screen-select");
+function openDeal() {
+    Telegram.WebApp.showAlert("Сделка открыта. Дождитесь окончания сигнала.");
 }
 </script>
-
 </body>
 </html>
+
