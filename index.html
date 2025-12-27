@@ -1,98 +1,107 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<title>Trader Grizzly Bot AI</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-body {
-    margin: 0;
-    background: #0f0f0f;
-    color: white;
-    font-family: Arial;
-    text-align: center;
-}
-.container { padding: 30px; }
-select, button {
-    width: 100%;
-    padding: 14px;
-    font-size: 16px;
-    margin-top: 15px;
-    border-radius: 8px;
-    border: none;
-}
-button {
-    background: #3ba1ff;
-    color: white;
-    cursor: pointer;
-}
-.hidden { display: none; }
-</style>
+    <meta charset="UTF-8" />
+    <title>Trader Grizzly Bot AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Telegram Mini App API -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0e0e0e;
+            color: #ffffff;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: none;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background: #555;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
 </head>
 
 <body>
 <div class="container">
 
-<!-- ЭКРАН 1 -->
-<div id="screen-pair">
-    <h2>📊 Выбор пары</h2>
-    <select id="pair">
-        <option value="EUR/USD">EUR/USD</option>
-        <option value="USD/JPY">USD/JPY</option>
-        <option value="GBP/USD">GBP/USD</option>
-    </select>
-    <button onclick="requestSignal()">Получить сигнал</button>
+    <!-- БЛОК ВЫБОРА -->
+    <div id="selectBlock">
+        <h2>📊 Выбор пары</h2>
+
+        <select id="pairSelect">
+            <option value="EUR/USD">EUR/USD</option>
+            <option value="USD/JPY">USD/JPY</option>
+            <option value="GBP/USD">GBP/USD</option>
+        </select>
+
+        <button id="getSignalBtn">Получить сигнал</button>
+    </div>
+
+    <!-- БЛОК АНАЛИЗА -->
+    <div id="loadingBlock" class="hidden">
+        <h2>⏳ Идёт анализ рынка</h2>
+        <p style="text-align:center;">Сигнал формируется, подождите…</p>
+    </div>
+
+    <!-- БЛОК СИГНАЛА -->
+    <div id="signalBlock" class="hidden">
+        <h2>📊 ТОРГОВЫЙ СИГНАЛ</h2>
+
+        <ul>
+            <li>💱 Пара: <b><span id="pair"></span></b></li>
+            <li>📈 Направление: <b><span id="direction"></span></b></li>
+            <li>⏱ Время сделки: <b><span id="timeframe"></span></b></li>
+            <li>⭐ Качество: <b><span id="quality"></span></b></li>
+            <li>💰 Цена открытия: <b><span id="price"></span></b></li>
+            <li>🕒 Время входа: <b><span id="entryTime"></span></b></li>
+        </ul>
+
+        <button onclick="openDeal()">Открыть сделку</button>
+    </div>
+
 </div>
 
-<!-- ЭКРАН 2 -->
-<div id="screen-loading" class="hidden">
-    <h2>⏳ Идёт анализ рынка</h2>
-    <p>Сигнал в течение 10–20 секунд…</p>
-</div>
-
-<!-- ЭКРАН 3 -->
-<div id="screen-signal" class="hidden">
-    <h2>📊 ТОРГОВЫЙ СИГНАЛ</h2>
-    <p id="signalText"></p>
-    <button onclick="openDeal()">Открыть сделку</button>
-</div>
-
-</div>
-
-<script>
-const API_URL = "https://scleroid-measureless-kaya.ngrok-free.dev";
-
-function requestSignal() {
-    document.getElementById("screen-pair").classList.add("hidden");
-    document.getElementById("screen-loading").classList.remove("hidden");
-
-    fetch(API_URL + "/signal", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            pair: document.getElementById("pair").value
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById("screen-loading").classList.add("hidden");
-        document.getElementById("screen-signal").classList.remove("hidden");
-
-        document.getElementById("signalText").innerHTML = `
-💱 Пара: ${data.pair}<br>
-📈 Направление: ${data.direction}<br>
-⏱️ Таймфрейм: ${data.timeframe}<br>
-⭐ Качество: ${data.quality}<br>
-💰 Цена открытия: ${data.open_price}<br>
-🕒 Время входа: ${data.entry_time}
-        `;
-    });
-}
-
-function openDeal() {
-    Telegram.WebApp.showAlert("Сделка открыта. Дождитесь окончания сигнала.");
-}
-</script>
+<script src="index.js"></script>
 </body>
 </html>
+
 
