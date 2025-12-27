@@ -1,6 +1,8 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
+const API_URL = "https://scleroid-measureless-kaya.ngrok-free.dev"; // ← ВАЖНО
+
 const selectBlock = document.getElementById("selectBlock");
 const loadingBlock = document.getElementById("loadingBlock");
 const signalBlock = document.getElementById("signalBlock");
@@ -22,7 +24,7 @@ getSignalBtn.addEventListener("click", async () => {
     loadingBlock.classList.remove("hidden");
 
     try {
-        const response = await fetch("/signal", {
+        const response = await fetch(`${API_URL}/signal`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ pair })
@@ -31,10 +33,8 @@ getSignalBtn.addEventListener("click", async () => {
         const data = await response.json();
         console.log("SIGNAL FROM SERVER:", data);
 
-        // ЗАПОЛНЕНИЕ СИГНАЛА
         pairEl.textContent = data.pair ?? "—";
 
-        // UP / DOWN → ВВЕРХ / ВНИЗ
         if (data.direction === "UP") directionEl.textContent = "ВВЕРХ";
         else if (data.direction === "DOWN") directionEl.textContent = "ВНИЗ";
         else directionEl.textContent = data.direction ?? "—";
@@ -48,12 +48,11 @@ getSignalBtn.addEventListener("click", async () => {
         signalBlock.classList.remove("hidden");
 
     } catch (e) {
-        console.error(e);
+        console.error("FETCH ERROR:", e);
         loadingBlock.innerHTML = "<p>Ошибка получения сигнала</p>";
     }
 });
 
 function openDeal() {
-    // Заглушка под Pocket Option / deeplink
     alert("Здесь будет переход к сделке");
 }
